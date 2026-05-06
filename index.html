@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人量化与期权控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        /* 自定义一点点发光效果 */
+        .neon-text { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 p-6 font-sans min-h-screen">
+
+    <header class="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+        <h1 class="text-2xl font-bold text-sky-400 neon-text">📈 投资策略与期权看板 <span class="text-sm text-slate-500 font-normal ml-2">v0.1 Vercel 部署版</span></h1>
+        <div class="text-sm text-slate-400" id="clock">加载时间...</div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-2 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
+                    <h3 class="text-slate-400 text-sm">纳斯达克100 (QQQM)</h3>
+                    <p class="text-3xl font-bold text-white mt-1">$185.42</p>
+                    <p class="text-emerald-400 text-sm mt-1">+1.24%</p>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
+                    <h3 class="text-slate-400 text-sm">西方石油 (OXY)</h3>
+                    <p class="text-3xl font-bold text-white mt-1">$62.15</p>
+                    <p class="text-rose-400 text-sm mt-1">-0.85%</p>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
+                    <h3 class="text-slate-400 text-sm">核能新星 (SMR)</h3>
+                    <p class="text-3xl font-bold text-white mt-1">$12.30</p>
+                    <p class="text-emerald-400 text-sm mt-1">+4.50%</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
+                <h3 class="text-slate-300 mb-4 font-semibold">自选标的近期走势 (模拟数据)</h3>
+                <div id="main-chart" style="width: 100%; height: 300px;"></div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+            <h3 class="text-sky-400 text-lg font-bold mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                Sell Put 年化收益率试算
+            </h3>
+            
+            <div class="space-y-4 flex-grow">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">行权价 (Strike Price $)</label>
+                    <input type="number" id="put-strike" value="60" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white focus:outline-none focus:border-sky-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">权利金 (Premium $)</label>
+                    <input type="number" id="put-premium" value="1.5" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white focus:outline-none focus:border-sky-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">距离到期天数 (DTE)</label>
+                    <input type="number" id="put-dte" value="30" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white focus:outline-none focus:border-sky-500">
+                </div>
+            </div>
+
+            <button onclick="calculatePutYield()" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg transition-colors">
+                计算年化收益
+            </button>
+
+            <div id="calc-result" class="mt-6 p-4 bg-slate-900 border border-slate-700 rounded-lg hidden">
+                <p class="text-sm text-slate-400">静态收益率 (不含杠杆)：<span id="static-yield" class="text-white font-bold"></span></p>
+                <p class="text-sm text-slate-400 mt-2">折算年化收益率：<span id="annual-yield" class="text-emerald-400 font-bold text-xl"></span></p>
+                <p class="text-xs text-slate-500 mt-3 border-t border-slate-700 pt-2">若跌破行权价，持仓成本将降至：<span id="breakeven" class="text-rose-400 font-bold"></span></p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 1. 右上角时钟逻辑
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = '美东时间: ' + now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // 2. 期权年化收益计算逻辑
+        function calculatePutYield() {
+            const strike = parseFloat(document.getElementById('put-strike').value);
+            const premium = parseFloat(document.getElementById('put-premium').value);
+            const dte = parseInt(document.getElementById('put-dte').value);
+
+            if (!strike || !premium || !dte) return alert("请完整填写参数");
+
+            // 计算静态收益率: 权利金 / (行权价 - 权利金) * 这里采用保守计算方式
+            const staticYield = (premium / strike) * 100;
+            // 计算年化收益率
+            const annualYield = (staticYield / dte) * 365;
+            // 计算盈亏平衡点 (接盘成本)
+            const breakeven = strike - premium;
+
+            document.getElementById('static-yield').innerText = staticYield.toFixed(2) + '%';
+            document.getElementById('annual-yield').innerText = annualYield.toFixed(2) + '%';
+            document.getElementById('breakeven').innerText = '$' + breakeven.toFixed(2);
+            
+            document.getElementById('calc-result').classList.remove('hidden');
+        }
+
+        // 3. ECharts 图表渲染逻辑 (这里先写死模拟数据，后续我们再通过 Vercel 函数接真实 API)
+        const chartDom = document.getElementById('main-chart');
+        const myChart = echarts.init(chartDom, 'dark', { backgroundColor: 'transparent' });
+        
+        const option = {
+            tooltip: { trigger: 'axis' },
+            legend: { data: ['QQQM', 'OXY'], textStyle: { color: '#94a3b8' } },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: { 
+                type: 'category', 
+                boundaryGap: false, 
+                data: ['周一', '周二', '周三', '周四', '周五'],
+                axisLine: { lineStyle: { color: '#475569' } }
+            },
+            yAxis: { 
+                type: 'value', 
+                scale: true,
+                splitLine: { lineStyle: { color: '#334155', type: 'dashed' } }
+            },
+            series: [
+                { name: 'QQQM', type: 'line', smooth: true, itemStyle: { color: '#38bdf8' }, data: [180, 182, 181, 184, 185.42] },
+                { name: 'OXY', type: 'line', smooth: true, itemStyle: { color: '#fb7185' }, data: [64, 63.5, 62.8, 63, 62.15] }
+            ]
+        };
+        myChart.setOption(option);
+        
+        // 窗口缩放时自动重绘图表
+        window.addEventListener('resize', () => myChart.resize());
+    </script>
+</body>
+</html>
