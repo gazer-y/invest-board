@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宏观情绪与估值监控台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        .neon-text { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        /* 隐藏滚动条让卡片更干净 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 p-6 font-sans min-h-screen">
+
+    <header class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+        <h1 class="text-2xl font-bold text-sky-400 neon-text">🌐 全景宏观情绪监控大屏</h1>
+        <div class="text-sm text-slate-400" id="global-clock">系统初始化中...</div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        
+        <div class="lg:col-span-2 xl:col-span-2 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col items-center justify-center relative">
+            <h3 class="text-slate-300 font-bold mb-2 text-lg">CNN 恐慌与贪婪指数 (实时抓取)</h3>
+            <div id="gauge-chart" style="width: 100%; height: 350px;"></div>
+            <p id="fg-status" class="text-xl font-bold mt-2 text-slate-500">连接 API 中...</p>
+            <div class="absolute bottom-4 right-4 text-xs text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-yellow-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">席勒 CAPE (周期调整市盈率)</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p id="cape-value" class="text-3xl font-bold text-white">拉取中...</p>
+                    <p class="text-yellow-500 text-xs font-bold">▶ 历史高位区间</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】均值 ~17</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 > 30：极度高估 (泡沫区)<br>🟢 < 15：极度低估 (黄金坑)</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：当前系统性估值极高，需留足安全边际，切忌盲目追高。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">VIX 恐慌指数</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p id="vix-value" class="text-3xl font-bold text-white">加载中...</p>
+                    <p class="text-indigo-400 text-xs font-bold">▶ 极度平静</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】正常 15-20</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 < 13：极度麻木，风险暗流涌动<br>🟢 > 30：极度恐慌，非理性抛售</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：恐慌飙升时期权极贵，是逢低卖出优质资产 Put 的收租时刻。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">巴菲特指标 (市值/GDP)</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">188%</p>
+                    <p class="text-purple-400 text-xs font-bold">▶ 显著高估</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】合理 70% - 120%</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 > 150%：资产价格严重脱离实体经济<br>🟢 < 70%：绝对低估区域</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：长期定海神针。当前泡沫化严重，防守重于进攻。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">S&P500 站上50日线</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">68%</p>
+                    <p class="text-emerald-400 text-xs font-bold">▶ 宽度健康</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】健康 40% - 60%</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 > 80%：极度超买，短线回调风险大<br>🟢 < 20%：极度超卖，遍地带血筹码</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：衡量大盘涨跌是“普涨”还是“虚涨”的真实温度计。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-sky-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">AAII 散户牛熊差值</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">+15%</p>
+                    <p class="text-sky-400 text-xs font-bold">▶ 乐观蔓延</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】正常 -10% 至 +10%</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 > +20%：散户狂热，往往是见顶信号<br>🟢 < -20%：散户绝望，长线资金进场</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：典型的散户反指，别人疯狂我恐惧。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">NAAIM 经理人持仓</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">82.5</p>
+                    <p class="text-rose-400 text-xs font-bold">▶ 机构高仓位</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】常态 50 - 80</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 > 80：机构满仓，后续买盘子弹枯竭<br>🟢 < 40：机构极度恐慌，随时暴力反弹</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：跟随“聪明钱”的极端仓位做反向博弈。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">美银牛熊 (BofA B&B)</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">6.8</p>
+                    <p class="text-orange-400 text-xs font-bold">▶ 偏向贪婪</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】正常 2.0 - 8.0</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 > 8.0：触发“极度贪婪”卖出信号<br>🟢 < 2.0：触发“极度恐慌”买入信号</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：华尔街最准的宏观情绪反向指标之一。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">Put/Call Ratio</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">0.75</p>
+                    <p class="text-teal-400 text-xs font-bold">▶ 避险需求低</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】正常 0.7 - 0.9</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 < 0.6：全员加杠杆看涨，顶部将至<br>🟢 > 1.0：疯狂买保险，底部区域</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：真金白银交易出来的避险情绪体现。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-cyan-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">长短债利差 (10Y-2Y)</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">-0.35%</p>
+                    <p class="text-cyan-400 text-xs font-bold">▶ 深度倒挂</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】正常为正数</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 负数 (倒挂)：经典的经济衰退预警<br>🟢 急速逼近 0：解除倒挂往往伴随大跌</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：宏观基本面的最终裁判，警报未除。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg relative flex flex-col h-full">
+            <div class="absolute top-0 left-0 w-1 h-full bg-fuchsia-500"></div>
+            <div class="flex-grow pl-2">
+                <h3 class="text-slate-400 text-sm font-bold">高收益债利差 (HY OAS)</h3>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-3xl font-bold text-white">3.12%</p>
+                    <p class="text-fuchsia-400 text-xs font-bold">▶ 流动性充裕</p>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 font-bold mb-1">【标准】正常 3% - 5%</p>
+                    <p class="text-[11px] text-slate-400 leading-tight mb-1">🔴 > 6%：企业借不到钱，信用危机爆发<br>🟢 < 4%：无信用危机，股市大跌也仅为技术调整</p>
+                    <p class="text-[11px] text-emerald-400 mt-1">💡 启示：监测是否会发生系统性金融危机的雷达。</p>
+                </div>
+            </div>
+            <div class="mt-2 text-right text-[10px] text-slate-500">最后抓取: <span class="update-time">--:--:--</span></div>
+        </div>
+
+    </div>
+
+    <script>
+        // 初始化 ECharts 仪表盘
+        const gaugeDom = document.getElementById('gauge-chart');
+        const myChart = echarts.init(gaugeDom, 'dark', { backgroundColor: 'transparent' });
+        
+        const option = {
+            series: [{
+                type: 'gauge',
+                startAngle: 180, endAngle: 0, min: 0, max: 100, splitNumber: 4,
+                axisLine: {
+                    lineStyle: {
+                        width: 24,
+                        color: [ [0.25, '#fb7185'], [0.45, '#fbbf24'], [0.55, '#94a3b8'], [0.75, '#34d399'], [1, '#10b981'] ]
+                    }
+                },
+                pointer: { icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z', length: '12%', width: 20, offsetCenter: [0, '-60%'], itemStyle: { color: '#e2e8f0' } },
+                axisTick: { length: 12, lineStyle: { color: 'auto', width: 2 } },
+                splitLine: { length: 20, lineStyle: { color: 'auto', width: 5 } },
+                axisLabel: { color: '#94a3b8', distance: -60, fontSize: 14 },
+                detail: { fontSize: 40, offsetCenter: [0, '20%'], valueAnimation: true, color: '#f8fafc', formatter: '{value}' },
+                data: [{ value: 0, name: '连接 API...' }]
+            }]
+        };
+        myChart.setOption(option);
+
+        // 核心逻辑：获取 API 数据并更新时间和状态
+        async function fetchSentimentData() {
+            try {
+                const response = await fetch('/api/sentiment');
+                const data = await response.json();
+                
+                // 1. 更新仪表盘
+                myChart.setOption({ series: [{ data: [{ value: data.score, name: 'Score' }] }] });
+
+                // 2. 更新仪表盘文字
+                const statusEl = document.getElementById('fg-status');
+                statusEl.innerText = `当前市场定性：${data.rating}`;
+                if(data.score <= 25) statusEl.className = "text-xl font-bold mt-2 text-rose-500";
+                else if(data.score <= 45) statusEl.className = "text-xl font-bold mt-2 text-yellow-500";
+                else if(data.score <= 55) statusEl.className = "text-xl font-bold mt-2 text-slate-400";
+                else statusEl.className = "text-xl font-bold mt-2 text-emerald-500";
+
+                // 3. 【核心更新】将所有卡片的“最后抓取时间”统一打上最新时间戳
+                const fetchTime = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+                document.getElementById('global-clock').innerText = `系统运行正常`;
+                
+                // 遍历页面上所有的 .update-time 标签，写入最新时间
+                document.querySelectorAll('.update-time').forEach(el => {
+                    el.innerText = fetchTime;
+                    // 顺便给时间加个闪烁特效，表示刚才刷新了
+                    el.classList.add('text-emerald-400');
+                    setTimeout(() => el.classList.remove('text-emerald-400'), 800);
+                });
+
+            } catch (error) {
+                console.error("数据拉取失败:", error);
+                document.getElementById('fg-status').innerText = "获取失败，重试中...";
+            }
+        }
+// ================= 新增：抓取 VIX 核心逻辑 =================
+        async function fetchYahooData() {
+            try {
+                // 呼叫我们刚刚新建的 Vercel API
+                const response = await fetch('/api/yahoo');
+                const data = await response.json();
+                
+                // 找到 VIX 卡片里的数字容器更新它
+                const vixValueEl = document.getElementById('vix-value');
+                if(vixValueEl) {
+                    vixValueEl.innerText = data.vix;
+                    // 加个高亮闪烁特效
+                    vixValueEl.classList.add('text-indigo-300');
+                    setTimeout(() => vixValueEl.classList.remove('text-indigo-300'), 800);
+                }
+            } catch (error) {
+                console.error("Yahoo 数据拉取失败:", error);
+            }
+        }
+// 核心逻辑 3：爬取席勒 CAPE 数据 (增加防弹衣)
+        async function fetchCapeData() {
+            try {
+                const response = await fetch('/api/cape');
+                const data = await response.json();
+                
+                const capeValueEl = document.getElementById('cape-value');
+                if(capeValueEl) {
+                    // 防弹判断：只有当 data.cape 真的有数字时，才去改写页面
+                    if(data.cape) {
+                        capeValueEl.innerText = data.cape;
+                        capeValueEl.classList.add('text-yellow-300');
+                        setTimeout(() => capeValueEl.classList.remove('text-yellow-300'), 800);
+                    } else {
+                        // 如果抓取失败（比如被反爬了），优雅地显示“获取失败”
+                        capeValueEl.innerText = "防爬拦截";
+                        capeValueEl.classList.add('text-slate-500', 'text-lg');
+                    }
+                }
+            } catch (error) {
+                console.error("CAPE 数据拉取失败:", error);
+            }
+        }
+    </script>
+</body>
+</html>
