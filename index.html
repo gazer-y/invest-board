@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>美股市场仪表盘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141416;
+    --surface2: #1a1a1d;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8e8ea;
+    --muted: #8a8a96;
+    --faint: #3a3a42;
+    --green: #34c77b;
+    --red: #f0484a;
+    --yellow: #f5c542;
+    --blue: #4f8ef7;
+    --primary: #4f8ef7;
+    --radius: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 20px 48px;
+  }
+
+  /* ── Header ── */
+  .header {
+    max-width: 1200px;
+    margin: 0 auto 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header-left h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .header-left p {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .refresh-btn:hover { background: var(--faint); color: var(--text); }
+  .last-update {
+    font-size: 0.72rem;
+    color: var(--faint);
+  }
+
+  /* ── Grid ── */
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    border-color: rgba(255,255,255,0.13);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  .card-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 6px;
+    font-variant-numeric: tabular-nums;
+    min-height: 2rem;
+  }
+  .card-value.loading { color: var(--faint); font-size: 1rem; font-weight: 400; letter-spacing: 0; padding-top: 6px; }
+  .card-signal {
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .card-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 0;
+  }
+  .card-standard {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .card-standard span { display: block; }
+  .card-standard .warn { color: var(--red); }
+  .card-standard .safe { color: var(--green); }
+
+  /* ── Signal colors ── */
+  .sig-red    { color: var(--red); }
+  .sig-green  { color: var(--green); }
+  .sig-yellow { color: var(--yellow); }
+  .sig-blue   { color: var(--blue); }
+  .sig-muted  { color: var(--muted); }
+
+  /* ── Status dot on card top-right ── */
+  .card-dot {
+    position: absolute;
+    top: 18px; right: 18px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--faint);
+  }
+  .card-dot.ok     { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .card-dot.warn   { background: var(--yellow); }
+  .card-dot.danger { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .card-dot.loading { background: var(--faint); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+  /* ── Wide card (2 cols) ── */
+  .card-wide {
+    grid-column: span 2;
+  }
+  @media (max-width: 600px) {
+    .card-wide { grid-column: span 1; }
+    .card-value { font-size: 1.6rem; }
+  }
+
+  /* ── Section title ── */
+  .section-title {
+    max-width: 1200px;
+    margin: 28px auto 14px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    font-weight: 500;
+    padding-left: 2px;
+  }
+
+  /* ── SPX banner ── */
+  .spx-banner {
+    max-width: 1200px;
+    margin: 0 auto 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+  .spx-item { display: flex; flex-direction: column; gap: 2px; }
+  .spx-item-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+  .spx-item-val { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .spx-sep { width: 1px; height: 32px; background: var(--border); }
+
+  /* ── Error state ── */
+  .card-error { font-size: 0.72rem; color: var(--red); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <h1>📊 美股市场仪表盘</h1>
+    <p>宏观风险 · 情绪温度 · 估值警戒</p>
+  </div>
+  <div class="header-right">
+    <span class="last-update" id="lastUpdate">—</span>
+    <button class="refresh-btn" onclick="loadAll()">↻ 刷新</button>
+  </div>
+</div>
+
+<!-- SPX Banner -->
+<div class="spx-banner" id="spxBanner">
+  <div class="spx-item">
+    <span class="spx-item-label">S&P 500</span>
+    <span class="spx-item-val" id="spxPrice">—</span>
+  </div>
+  <div class="spx-sep"></div>
+  <div class="spx-item">
+    <span class="spx-item-label">VIX 恐慌指数</span>
+    <span class="spx-item-val" id="spxVix">—</span>
+  </div>
+</div>
+
+<!-- Section: 估值 -->
+<div class="section-title">估值指标</div>
+<div class="grid">
+
+  <!-- CAPE -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-cape"></div>
+    <div class="card-label">席勒 CAPE / PE10</div>
+    <div class="card-value loading" id="val-cape">拉取中…</div>
+    <div class="card-signal" id="sig-cape"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 均值 ~17，当前越高越危险</span>
+      <span class="warn">🔴 &gt;30：极度高估（泡沫区）</span>
+      <span class="safe">🟢 &lt;15：极度低估（黄金坑）</span>
+    </div>
+  </div>
+
+  <!-- 巴菲特指标 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-buffett"></div>
+    <div class="card-label">巴菲特指标（市值/GDP）</div>
+    <div class="card-value loading" id="val-buffett">拉取中…</div>
+    <div class="card-signal" id="sig-buffett"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 合理区间 70%–120%</span>
+      <span class="warn">🔴 &gt;150%：严重脱离实体经济</span>
+      <span class="safe">🟢 &lt;70%：低估区间</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Section: 情绪 -->
+<div class="section-title">市场情绪</div>
+<div class="grid">
+
+  <!-- CNN Fear & Greed -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-fg"></div>
+    <div class="card-label">CNN 恐惧贪婪指数</div>
+    <div class="card-value loading" id="val-fg">拉取中…</div>
+    <div class="card-signal" id="sig-fg"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 0–100，50为中性</span>
+      <span class="warn">🔴 &gt;80：极度贪婪，见顶信号</span>
+      <span class="safe">🟢 &lt;20：极度恐惧，买入时机</span>
+    </div>
+  </div>
+
+  <!-- AAII 牛熊 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-aaii"></div>
+    <div class="card-label">AAII 散户牛熊差值</div>
+    <div class="card-value loading" id="val-aaii">拉取中…</div>
+    <div class="card-signal" id="sig-aaii"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span id="aaii-detail" style="color:var(--muted)">看多% — 看空%</span>
+      <span>▶ 正常范围 ±10%</span>
+      <span class="warn">反指：&gt;+20% 见顶 / &lt;-20% 见底</span>
+    </div>
+  </div>
+
+  <!-- NAAIM 机构仓位 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-naaim"></div>
+    <div class="card-label">NAAIM 机构曝险指数</div>
+    <div class="card-value loading" id="val-naaim">拉取中…</div>
+    <div class="card-signal" id="sig-naaim"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 常态 50–80</span>
+      <span class="warn">🔴 &gt;80：子弹枯竭，上涨动能衰竭</span>
+      <span class="safe">🟢 &lt;40：低仓位，随时可反弹</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Section: 波动率 -->
+<div class="section-title">波动率 & 风险</div>
+<div class="grid">
+
+  <!-- VIX 详细 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-vix"></div>
+    <div class="card-label">VIX 波动率指数</div>
+    <div class="card-value loading" id="val-vix">拉取中…</div>
+    <div class="card-signal" id="sig-vix"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 正常区间 15–20</span>
+      <span class="warn">🔴 &lt;13：市场麻木，黑天鹅风险高</span>
+      <span class="safe">🟢 &gt;30：极度恐慌，Sell Put 良机</span>
+    </div>
+  </div>
+
+  <!-- 高收益债利差 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-hy"></div>
+    <div class="card-label">高收益债利差（HY Spread）</div>
+    <div class="card-value loading" id="val-hy">拉取中…</div>
+    <div class="card-signal" id="sig-hy"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 正常 3%–5%</span>
+      <span class="warn">🔴 &gt;6%：企业借不到钱，信用危机</span>
+      <span class="safe">🟢 &lt;3%：流动性充裕，市场乐观</span>
+    </div>
+  </div>
+
+  <!-- 收益率曲线 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-yc"></div>
+    <div class="card-label">10Y–2Y 国债利差</div>
+    <div class="card-value loading" id="val-yc">拉取中…</div>
+    <div class="card-signal" id="sig-yc"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 正常值为正数</span>
+      <span class="warn">🔴 负数（倒挂）：历史衰退预警</span>
+      <span>解除倒挂后往往伴随大跌</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Section: 宏观 -->
+<div class="section-title">宏观经济</div>
+<div class="grid">
+
+  <!-- 失业率 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-unemp"></div>
+    <div class="card-label">美国失业率</div>
+    <div class="card-value loading" id="val-unemp">拉取中…</div>
+    <div class="card-signal" id="sig-unemp"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 正常 3.5%–5%</span>
+      <span class="warn">🔴 快速上升：衰退信号</span>
+      <span class="safe">🟢 低位稳定：就业市场健康</span>
+    </div>
+  </div>
+
+  <!-- M2 -->
+  <div class="card">
+    <div class="card-dot loading" id="dot-m2"></div>
+    <div class="card-label">M2 货币供应量（十亿美元）</div>
+    <div class="card-value loading" id="val-m2">拉取中…</div>
+    <div class="card-signal" id="sig-m2"></div>
+    <div class="card-divider"></div>
+    <div class="card-standard">
+      <span>▶ 月度数据（FRED）</span>
+      <span>持续扩张 → 流动性充裕 → 利好风险资产</span>
+      <span class="warn">🔴 收缩 → 流动性紧缩警告</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// ���具函数
+// ─────────────────────────────────────────────
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function setClass(id, cls) {
+  const el = document.getElementById(id);
+  if (el) { el.className = el.className.replace(/\bloading\b/g, '').trim() + ' ' + cls; }
+}
+function setDot(id, state) {
+  const el = document.getElementById('dot-' + id);
+  if (el) el.className = 'card-dot ' + state;
+}
+function setVal(id, text, colorClass) {
+  const el = document.getElementById('val-' + id);
+  if (el) { el.textContent = text; el.className = 'card-value ' + (colorClass || ''); }
+}
+function setSig(id, text, colorClass) {
+  const el = document.getElementById('sig-' + id);
+  if (el) { el.textContent = text; el.className = 'card-signal ' + (colorClass || 'sig-muted'); }
+}
+
+async function safeFetch(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+// ─────────────────────────────────────────────
+// 各指标加载逻辑
+// ─────────────────────────────────────────────
+
+async function loadYahoo() {
+  const d = await safeFetch('/api/yahoo');
+  if (!d || d.error) {
+    setVal('vix', '获取失败', 'sig-red'); setDot('vix', 'danger');
+    setText('spxVix', '—'); setText('spxPrice', '—');
+    return;
+  }
+  const vix = parseFloat(d.vix);
+  const spx = parseFloat(d.spx);
+
+  // SPX Banner
+  setText('spxPrice', spx.toLocaleString('en-US', { minimumFractionDigits: 2 }));
+  setText('spxVix', vix.toFixed(2));
+
+  // VIX Card
+  setVal('vix', vix.toFixed(2));
+  if (vix > 30)      { setSig('vix', '▲ 极度恐慌 — Sell Put 机会', 'sig-green'); setDot('vix', 'ok'); }
+  else if (vix > 20) { setSig('vix', '▲ 市场紧张 — 保持警惕', 'sig-yellow'); setDot('vix', 'warn'); }
+  else if (vix < 13) { setSig('vix', '▼ 市场麻木 — 黑天鹅风险', 'sig-red'); setDot('vix', 'danger'); }
+  else               { setSig('vix', '● 正常波动区间', 'sig-muted'); setDot('vix', 'ok'); }
+}
+
+async function loadCape() {
+  const d = await safeFetch('/api/cape');
+  if (!d || d.error) { setVal('cape', '获取失败', 'sig-red'); setDot('cape', 'danger'); return; }
+  const v = parseFloat(d.cape);
+  setVal('cape', v.toFixed(1));
+  if (v > 38)      { setSig('cape', '▲ 极度高估 — 泡沫区域', 'sig-red'); setDot('cape', 'danger'); }
+  else if (v > 30) { setSig('cape', '▲ 高估 — 谨慎持仓', 'sig-yellow'); setDot('cape', 'warn'); }
+  else if (v > 20) { setSig('cape', '● 偏高 — 历史均值上方', 'sig-muted'); setDot('cape', 'ok'); }
+  else if (v < 15) { setSig('cape', '▼ 低估 — 历史黄金坑', 'sig-green'); setDot('cape', 'ok'); }
+  else             { setSig('cape', '● 合理区间', 'sig-muted'); setDot('cape', 'ok'); }
+}
+
+async function loadBuffett() {
+  const d = await safeFetch('/api/buffett');
+  if (!d || d.error) { setVal('buffett', '获取失败', 'sig-red'); setDot('buffett', 'danger'); return; }
+  const v = parseFloat(d.buffett);
+  setVal('buffett', v.toFixed(1) + '%');
+  if (v > 150)      { setSig('buffett', '▲ 极度高估 — ' + d.level, 'sig-red'); setDot('buffett', 'danger'); }
+  else if (v > 120) { setSig('buffett', '▲ 显著高估 — ' + d.level, 'sig-yellow'); setDot('buffett', 'warn'); }
+  else if (v > 100) { setSig('buffett', '▲ 偏高 — ' + d.level, 'sig-yellow'); setDot('buffett', 'warn'); }
+  else if (v < 70)  { setSig('buffett', '▼ 低估区间 — ' + d.level, 'sig-green'); setDot('buffett', 'ok'); }
+  else              { setSig('buffett', '● 合理区间 — ' + d.level, 'sig-muted'); setDot('buffett', 'ok'); }
+}
+
+async function loadSentiment() {
+  const d = await safeFetch('/api/sentiment');
+  if (!d || d.error) { setVal('fg', '获取失败', 'sig-red'); setDot('fg', 'danger'); return; }
+  const v = d.score;
+  setVal('fg', v + '  ' + (d.ratingZh || ''));
+  if (v >= 80)      { setSig('fg', '▲ 极度贪婪 — 见顶警告', 'sig-red'); setDot('fg', 'danger'); }
+  else if (v >= 60) { setSig('fg', '▲ 贪婪 — 保持谨慎', 'sig-yellow'); setDot('fg', 'warn'); }
+  else if (v <= 20) { setSig('fg', '▼ 极度恐惧 — 潜在买点', 'sig-green'); setDot('fg', 'ok'); }
+  else if (v <= 40) { setSig('fg', '▼ 恐惧 — 关注机会', 'sig-blue'); setDot('fg', 'ok'); }
+  else              { setSig('fg', '● 中性市场情绪', 'sig-muted'); setDot('fg', 'ok'); }
+}
+
+async function loadScraper() {
+  const d = await safeFetch('/api/scraper');
+  if (!d) {
+    setVal('aaii', '获取失败', 'sig-red'); setDot('aaii', 'danger');
+    setVal('naaim', '获取失败', 'sig-red'); setDot('naaim', 'danger');
+    return;
+  }
+
+  // AAII
+  if (d.aaii) {
+    const spread = parseFloat(d.aaii.spread);
+    setVal('aaii', d.aaii.spread + '%');
+    setText('aaii-detail', `看多 ${d.aaii.bullish}%  |  看空 ${d.aaii.bearish}%`);
+    if (spread > 20)       { setSig('aaii', '▲ 过度乐观 — 反指见顶', 'sig-red'); setDot('aaii', 'danger'); }
+    else if (spread > 10)  { setSig('aaii', '▲ 乐观蔓延 — 小心追高', 'sig-yellow'); setDot('aaii', 'warn'); }
+    else if (spread < -20) { setSig('aaii', '▼ 过度悲观 — 反指见底', 'sig-green'); setDot('aaii', 'ok'); }
+    else if (spread < -10) { setSig('aaii', '▼ 情绪偏空 — 关注反弹', 'sig-blue'); setDot('aaii', 'ok'); }
+    else                   { setSig('aaii', '● 情绪中性', 'sig-muted'); setDot('aaii', 'ok'); }
+  } else {
+    setVal('aaii', '暂时不可用', 'sig-muted');
+    setSig('aaii', d.aaiiError || '数据源暂时无响应', 'sig-muted');
+    setDot('aaii', 'warn');
+  }
+
+  // NAAIM
+  if (d.naaim !== null && d.naaim !== undefined) {
+    const v = parseFloat(d.naaim);
+    setVal('naaim', v.toFixed(1));
+    if (v > 90)      { setSig('naaim', '▲ 仓位极重 — 子弹枯竭', 'sig-red'); setDot('naaim', 'danger'); }
+    else if (v > 80) { setSig('naaim', '▲ 高仓位 — 上涨动能衰竭', 'sig-yellow'); setDot('naaim', 'warn'); }
+    else if (v < 40) { setSig('naaim', '▼ 低仓位 — 随时可反弹', 'sig-green'); setDot('naaim', 'ok'); }
+    else             { setSig('naaim', '● 仓位正常', 'sig-muted'); setDot('naaim', 'ok'); }
+  } else {
+    setVal('naaim', '暂时不可用', 'sig-muted');
+    setSig('naaim', d.naaimError || '数据源暂时无响应', 'sig-muted');
+    setDot('naaim', 'warn');
+  }
+}
+
+async function loadFred() {
+  const d = await safeFetch('/api/fred');
+  if (!d || d.error) {
+    ['hy','yc','unemp','m2'].forEach(id => { setVal(id,'获取失败','sig-red'); setDot(id,'danger'); });
+    return;
+  }
+
+  // 高收益债利差
+  if (d.highYield?.value) {
+    const v = parseFloat(d.highYield.value);
+    setVal('hy', v.toFixed(2) + '%');
+    if (v > 6)      { setSig('hy', '▲ 信用危机风险高', 'sig-red'); setDot('hy', 'danger'); }
+    else if (v > 5) { setSig('hy', '▲ 利差偏宽 — 保持警惕', 'sig-yellow'); setDot('hy', 'warn'); }
+    else if (v < 3) { setSig('hy', '▼ 流动性充裕 — 市场乐观', 'sig-blue'); setDot('hy', 'ok'); }
+    else            { setSig('hy', '● 正常区间', 'sig-muted'); setDot('hy', 'ok'); }
+  } else { setVal('hy', '暂时不可用', 'sig-muted'); setDot('hy', 'warn'); }
+
+  // 收益率曲线
+  if (d.yieldCurve?.value) {
+    const v = parseFloat(d.yieldCurve.value);
+    setVal('yc', (v >= 0 ? '+' : '') + v.toFixed(2) + '%');
+    if (v < 0)      { setSig('yc', '▼ 倒挂！历史衰退预警', 'sig-red'); setDot('yc', 'danger'); }
+    else if (v < 0.3){ setSig('yc', '▲ 刚解除倒挂 — 大跌风险期', 'sig-yellow'); setDot('yc', 'warn'); }
+    else            { setSig('yc', '● 曲线正常', 'sig-muted'); setDot('yc', 'ok'); }
+  } else { setVal('yc', '暂时不可用', 'sig-muted'); setDot('yc', 'warn'); }
+
+  // 失业率
+  if (d.unemployment?.value) {
+    const v = parseFloat(d.unemployment.value);
+    setVal('unemp', v.toFixed(1) + '%');
+    if (v > 6)      { setSig('unemp', '▲ 失业率偏高 — 衰退信号', 'sig-red'); setDot('unemp', 'danger'); }
+    else if (v > 5) { setSig('unemp', '▲ 失业率上升 — 需关注', 'sig-yellow'); setDot('unemp', 'warn'); }
+    else if (v < 4) { setSig('unemp', '▼ 就业强劲 — 经济健康', 'sig-green'); setDot('unemp', 'ok'); }
+    else            { setSig('unemp', '● 就业市场正常', 'sig-muted'); setDot('unemp', 'ok'); }
+  } else { setVal('unemp', '暂时不可用', 'sig-muted'); setDot('unemp', 'warn'); }
+
+  // M2
+  if (d.m2?.value) {
+    const v = parseFloat(d.m2.value);
+    setVal('m2', (v / 1000).toFixed(1) + 'T');
+    setSig('m2', '● 数据日期: ' + (d.m2.date || '—'), 'sig-muted');
+    setDot('m2', 'ok');
+  } else { setVal('m2', '暂时不可用', 'sig-muted'); setDot('m2', 'warn'); }
+}
+
+// ─────────────────────────────────────────────
+// 主入口：并发加载所有接口
+// ─────────────────────────────────────────────
+async function loadAll() {
+  // 重置所有为加载中
+  ['cape','buffett','fg','aaii','naaim','vix','hy','yc','unemp','m2'].forEach(id => {
+    setVal(id, '拉取中…', 'loading');
+    setDot(id, 'loading');
+    setSig(id, '');
+  });
+  setText('spxPrice', '—'); setText('spxVix', '—');
+
+  await Promise.all([
+    loadYahoo(),
+    loadCape(),
+    loadBuffett(),
+    loadSentiment(),
+    loadScraper(),
+    loadFred()
+  ]);
+
+  const now = new Date();
+  setText('lastUpdate', '更新于 ' + now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+}
+
+// 页面加载时自动执行
+loadAll();
+</script>
+</body>
+</html>
