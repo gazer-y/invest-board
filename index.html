@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 美股交易信号仪表盘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0e;--s1:#111214;--s2:#17181b;--s3:#1e2024;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);--text:#e2e2e6;--muted:#787880;--faint:#32333a;--green:#2ecc71;--red:#e74c3c;--yellow:#f39c12;--blue:#3498db;--purple:#9b59b6;--r:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;-webkit-font-smoothing:antialiased}
+body{font-family:Inter,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px 16px 60px}
+/* Header */
+.hdr{max-width:1280px;margin:0 auto 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.hdr-l h1{font-size:1.15rem;font-weight:700;letter-spacing:-.3px}
+.hdr-l p{font-size:.72rem;color:var(--muted);margin-top:2px}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.btn-refresh{background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-family:inherit;transition:all .2s}
+.btn-refresh:hover{background:var(--faint);color:var(--text)}
+.last-upd{font-size:.7rem;color:var(--faint)}
+/* Banner */
+.banner{max-width:1280px;margin:0 auto 20px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:14px 20px;display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.bi{display:flex;flex-direction:column;gap:3px;padding:6px 24px 6px 0;min-width:140px}
+.bi:first-child{padding-left:0}
+.bi-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.bi-val{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.bi-chg{font-size:.72rem;font-weight:500;margin-top:1px}
+.bsep{width:1px;height:40px;background:var(--border);margin:0 4px 0 0;flex-shrink:0}
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--muted)}
+/* Sections */
+.sec-wrap{max-width:1280px;margin:0 auto}
+.sec-hdr{display:flex;align-items:center;gap:10px;margin:24px 0 12px;padding-left:2px}
+.sec-hdr span{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);font-weight:500}
+.sec-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+/* Grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:12px}
+/* Card */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:18px;position:relative;transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:var(--border2);box-shadow:0 6px 28px rgba(0,0,0,.45)}
+.card-lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:9px;font-weight:500}
+.card-val{font-size:1.9rem;font-weight:700;letter-spacing:-1px;line-height:1;margin-bottom:5px;font-variant-numeric:tabular-nums;min-height:1.9rem}
+.card-val.ld{color:var(--faint);font-size:.9rem;font-weight:400;letter-spacing:0;padding-top:8px;animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:.35}50%{opacity:1}}
+.card-sig{font-size:.75rem;font-weight:600;margin-bottom:10px;min-height:1rem}
+.card-div{height:1px;background:var(--border);margin:10px 0}
+.card-std{font-size:.7rem;color:var(--muted);line-height:1.65}
+.card-std span{display:block}
+.card-std .w{color:var(--red)}.card-std .s{color:var(--green)}.card-std .n{color:var(--blue)}
+.sr{color:var(--red)}.sg{color:var(--green)}.sy{color:var(--yellow)}.sb{color:var(--blue)}.sp{color:var(--purple)}.sm{color:var(--muted)}
+/* Status dot */
+.dot{position:absolute;top:16px;right:16px;width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.dot.ok{background:var(--green);box-shadow:0 0 5px var(--green)}
+.dot.warn{background:var(--yellow)}
+.dot.bad{background:var(--red);box-shadow:0 0 5px var(--red)}
+.dot.ld{background:var(--faint);animation:blink 1.2s infinite}
+/* Risk bar */
+.card::before{content:'';position:absolute;left:0;top:16px;bottom:16px;width:3px;border-radius:3px;background:transparent;transition:background .3s}
+.card.risk-low::before{background:var(--green)}
+.card.risk-med::before{background:var(--yellow)}
+.card.risk-high::before{background:var(--red)}
+@media(max-width:600px){.banner{gap:12px}.bi{min-width:120px;padding-right:16px}.bsep{display:none}.card-val{font-size:1.6rem}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-l">
+    <h1>📊 美股交易信号仪表盘</h1>
+    <p>长期估值 · 中期趋势 · 短期超买超卖</p>
+  </div>
+  <div class="hdr-r">
+    <span class="last-upd">更新于: <span id="lu"></span></span>
+    <button class="btn-refresh" onclick="loadAll()">↻ 刷新</button>
+  </div>
+</div>
+
+<div class="banner">
+  <div class="bi"><span class="bi-label">S&amp;P 500</span><span class="bi-val" id="b-spx">—</span><span class="bi-chg neu" id="b-spx-c"></span></div>
+  <div class="bsep"></div>
+  <div class="bi"><span class="bi-label">纳斯达克</span><span class="bi-val" id="b-ndx">—</span><span class="bi-chg neu" id="b-ndx-c"></span></div>
+  <div class="bsep"></div>
+  <div class="bi"><span class="bi-label">道琼斯</span><span class="bi-val" id="b-dji">—</span><span class="bi-chg neu" id="b-dji-c"></span></div>
+  <div class="bsep"></div>
+  <div class="bi"><span class="bi-label">VIX 恐慌</span><span class="bi-val" id="b-vix">—</span><span class="bi-chg neu" id="b-vix-c"></span></div>
+  <div class="bsep"></div>
+  <div class="bi"><span class="bi-label">美元指数 DXY</span><span class="bi-val" id="b-dxy">—</span><span class="bi-chg neu" id="b-dxy-c"></span></div>
+</div>
+
+<div class="sec-wrap">
+  <div class="sec-hdr"><span>🔴 长期信号 — 判断牛熊周期 / 大顶大底</span></div>
+  <div class="grid">
+    <div class="card" id="c-cape"><div class="dot ld" id="d-cape"></div><div class="card-lbl">席勒 CAPE / PE10</div><div class="card-val ld" id="v-cape">拉取中…</div><div class="card-sig" id="s-cape"></div><div class="card-div"></div><div class="card-std"><span>▶ 历史均值约 17，当前越高越危险</span><span class="w">&gt;35：历史大顶区，准备减仓</span><span class="w">&gt;30：高估，控制仓位</span><span class="s">&lt;15：历史大底，分批进场</span></div></div>
+    <div class="card" id="c-buffett"><div class="dot ld" id="d-buffett"></div><div class="card-lbl">巴菲特指标（市值/GDP）</div><div class="card-val ld" id="v-buffett">拉取中…</div><div class="card-sig" id="s-buffett"></div><div class="card-div"></div><div class="card-std"><span>▶ 巴菲特本人的离场参考指标</span><span class="w">&gt;150%：严重高估，大幅减仓</span><span class="w">100–150%：偏高，谨慎追高</span><span class="s">&lt;80%：低估，可积极布局</span></div></div>
+    <div class="card" id="c-ttmpe"><div class="dot ld" id="d-ttmpe"></div><div class="card-lbl">标普500 市盈率 TTM</div><div class="card-val ld" id="v-ttmpe">拉取中…</div><div class="card-sig" id="s-ttmpe"></div><div class="card-div"></div><div class="card-std"><span>▶ 当前实时估值（非周期调整）</span><span class="w">&gt;25：贵，泡沫风险增加</span><span>15–25：历史正常区间</span><span class="s">&lt;15：便宜，价值区间</span></div></div>
+    <div class="card" id="c-div"><div class="dot ld" id="d-div"></div><div class="card-lbl">标普500 股息率</div><div class="card-val ld" id="v-div">拉取中…</div><div class="card-sig" id="s-div"></div><div class="card-div"></div><div class="card-std"><span>▶ 股息率越低 = 股价越贵</span><span class="w">&lt;1.5%：历史顶部区域</span><span>1.5–2.5%：偏贵但正常</span><span class="s">&gt;3%：历史低估买点</span></div></div>
+  </div>
+
+  <div class="sec-hdr"><span>🟡 中期信号 — 趋势方向 / 资金松紧 / 利率环境</span></div>
+  <div class="grid">
+    <div class="card" id="c-ffr"><div class="dot ld" id="d-ffr"></div><div class="card-lbl">美联储基准利率 FFR</div><div class="card-val ld" id="v-ffr">拉取中…</div><div class="card-sig" id="s-ffr"></div><div class="card-div"></div><div class="card-std"><span>▶ 利率是股市最重要的外部变量</span><span class="w">快速加息中：熊市压力，减仓</span><span class="s">降息周期开启：牛市燃料，加仓</span><span>高位维持：压制估值，等待拐点</span></div></div>
+    <div class="card" id="c-t10y"><div class="dot ld" id="d-t10y"></div><div class="card-lbl">10年期国债收益率</div><div class="card-val ld" id="v-t10y">拉取中…</div><div class="card-sig" id="s-t10y"></div><div class="card-div"></div><div class="card-std"><span>▶ 无风险利率基准，影响所有估值</span><span class="w">&gt;5%：股市承压，债券吸引力强</span><span class="w">4–5%：高利率环境，估值受压</span><span class="s">快速下行：衰退预警但股市短期受益</span></div></div>
+    <div class="card" id="c-dxy"><div class="dot ld" id="d-dxy"></div><div class="card-lbl">美元指数 DXY</div><div class="card-val ld" id="v-dxy">拉取中…</div><div class="card-sig" id="s-dxy"></div><div class="card-div"></div><div class="card-std"><span>▶ 美元强 = 资金回流美国，风险资产承压</span><span class="w">&gt;105 且上升：新兴市场和大宗承压</span><span class="s">&lt;95 且下行：全球风险偏好上升</span><span>● 与股市通常负相关</span></div></div>
+    <div class="card" id="c-yc"><div class="dot ld" id="d-yc"></div><div class="card-lbl">收益率曲线 10Y–2Y</div><div class="card-val ld" id="v-yc">拉取中…</div><div class="card-sig" id="s-yc"></div><div class="card-div"></div><div class="card-std"><span>▶ 倒挂后 12–18 个月内往往衰退</span><span class="w">负数（倒挂）：衰退预警信号</span><span class="w">刚转正：解除倒挂，大跌高风险期</span><span class="s">正数稳定：经济扩张，牛市友好</span></div></div>
+    <div class="card" id="c-hy"><div class="dot ld" id="d-hy"></div><div class="card-lbl">高收益债利差 HY SPREAD</div><div class="card-val ld" id="v-hy">拉取中…</div><div class="card-sig" id="s-hy"></div><div class="card-div"></div><div class="card-std"><span>▶ 骤升 = 信用危机，流动性枯竭</span><span class="w">&gt;6%：企业借不到钱，市场危机</span><span class="w">5–6%：利差扩大，需警惕</span><span class="s">&lt;3%：流动性充裕，市场乐观</span></div></div>
+  </div>
+
+  <div class="sec-hdr"><span>🟢 短期信号 — 超买超卖 / 进出场时机</span></div>
+  <div class="grid">
+    <div class="card" id="c-vix"><div class="dot ld" id="d-vix"></div><div class="card-lbl">VIX 恐慌指数</div><div class="card-val ld" id="v-vix">拉取中…</div><div class="card-sig" id="s-vix"></div><div class="card-div"></div><div class="card-std"><span>▶ 恐慌越高 = 买入信号越强</span><span class="w">&lt;13：市场麻木，黑天鹅风险积累</span><span class="s">&gt;30：极度恐慌，绝佳买点</span><span class="s">● &gt;40：历史级恐慌，重仓进场</span></div></div>
+    <div class="card" id="c-fg"><div class="dot ld" id="d-fg"></div><div class="card-lbl">CNN 恐惧贪婪指数</div><div class="card-val ld" id="v-fg">拉取中…</div><div class="card-sig" id="s-fg"></div><div class="card-div"></div><div class="card-std"><span>▶ 情绪反指：极贪婪卖，极恐惧买</span><span class="w">&gt;80：极度贪婪，获利离场</span><span class="w">60–80：贪婪，减少追高</span><span class="s">&lt;20：极度恐惧，分批买入</span></div></div>
+    <div class="card" id="c-pc"><div class="dot ld" id="d-pc"></div><div class="card-lbl">CBOE Put/Call 比率</div><div class="card-val ld" id="v-pc">拉取中…</div><div class="card-sig" id="s-pc"></div><div class="card-div"></div><div class="card-std"><span>▶ 看跌/看涨期权之比，反向指标</span><span class="w">&lt;0.7：过度乐观，见顶信号</span><span>0.7–1.0：正常区间</span><span class="s">&gt;1.2：过度悲观，短期买入信号</span></div></div>
+    <div class="card" id="c-aaii"><div class="dot ld" id="d-aaii"></div><div class="card-lbl">AAII 散户牛熊差值</div><div class="card-val ld" id="v-aaii">拉取中…</div><div class="card-sig" id="s-aaii"></div><div class="card-div"></div><div class="card-std"><span id="aaii-detail" style="color:var(--muted)"></span><span>看多% — 看空%</span><span>▶ 散户情绪是反指</span><span class="w">&gt;+20%：散户过度乐观，见顶</span><span class="s">&lt;-20%：散户极度悲观，见底</span></div></div>
+    <div class="card" id="c-naaim"><div class="dot ld" id="d-naaim"></div><div class="card-lbl">NAAIM 机构曝险指数</div><div class="card-val ld" id="v-naaim">拉取中…</div><div class="card-sig" id="s-naaim"></div><div class="card-div"></div><div class="card-std"><span>▶ 机构实际仓位，0–200%</span><span class="w">&gt;90：机构仓位极重，子弹枯竭</span><span class="s">&lt;40：机构低仓，随时可大反弹</span></div></div>
+  </div>
+
+  <div class="sec-hdr"><span>⚪ 宏观辅助 — 经济背景参考</span></div>
+  <div class="grid">
+    <div class="card" id="c-unemp"><div class="dot ld" id="d-unemp"></div><div class="card-lbl">美国失业率</div><div class="card-val ld" id="v-unemp">拉取中…</div><div class="card-sig" id="s-unemp"></div><div class="card-div"></div><div class="card-std"><span>▶ 失业率快速上升 = 衰退来临</span><span class="w">持续上升趋势：衰退进行中</span><span class="s">低位稳定（&lt;4%）：经济健康</span></div></div>
+    <div class="card" id="c-m2"><div class="dot ld" id="d-m2"></div><div class="card-lbl">M2 货币供应量</div><div class="card-val ld" id="v-m2">拉取中…</div><div class="card-sig" id="s-m2"></div><div class="card-div"></div><div class="card-std"><span>▶ 流动性的总水位</span><span class="s">扩张：流动性充裕，利好风险资产</span><span class="w">收缩：流动性紧缩，股市承压</span></div></div>
+  </div>
+</div>
+
+<script>
+// ── 工具函数 ──────────────────────────────────────────────
+const id = i => document.getElementById(i);
+const tx = (i,t) => { const e=id(i); if(e) e.textContent=t; };
+const cl = (i,c) => { const e=id(i); if(e) e.className=e.className.replace(/\s*risk-\S+/,'').trim()+' '+c; };
+function setVal(i,text,colorCls){ const e=id('v-'+i); if(!e)return; e.textContent=text; e.className='card-val'+(colorCls?' '+colorCls:''); }
+function setSig(i,text,colorCls){ const e=id('s-'+i); if(!e)return; e.textContent=text; e.className='card-sig'+(colorCls?' '+colorCls:' sm'); }
+function setDot(i,state){ const e=id('d-'+i); if(e) e.className='dot '+state; }
+function setRisk(i,risk){ const e=id('c-'+i); if(e) e.className='card'+(risk?' risk-'+risk:''); }
+async function safeFetch(url){ try{ const r=await fetch(url); if(!r.ok)return null; return await r.json(); }catch{ return null; } }
+const fmt = (n,dec=2) => parseFloat(n).toFixed(dec);
+const fmtNum = n => parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:2});
+
+// ── Yahoo：指数 + VIX + DXY ──────────────────────────────
+async function loadYahoo(){
+  const d = await safeFetch('/api/yahoo');
+  if(!d||d.error){ ['spx','ndx','dji','vix'].forEach(k=>tx('b-'+k,'—')); setVal('vix','暂不可用','sr'); setDot('vix','bad'); return; }
+  tx('b-spx', fmtNum(d.spx)); tx('b-ndx', fmtNum(d.ndx)); tx('b-dji', fmtNum(d.dji));
+  tx('b-vix', fmt(d.vix)); tx('b-dxy', fmt(d.dxy));
+  const vix = parseFloat(d.vix);
+  setVal('vix', fmt(d.vix));
+  if(vix>40){setSig('vix','🟢🟢 历史级恐慌，重仓进场','sg');setDot('vix','ok');setRisk('vix','low');}
+  else if(vix>30){setSig('vix','🟢 极度恐慌，绝佳买点','sg');setDot('vix','ok');setRisk('vix','low');}
+  else if(vix>20){setSig('vix','正常波动区间','sm');setDot('vix','ok');setRisk('vix','');}
+  else if(vix>13){setSig('vix','正常波动区间','sm');setDot('vix','ok');setRisk('vix','');}
+  else{setSig('vix','⚠️ 市场麻木，黑天鹅风险积累','sr');setDot('vix','bad');setRisk('vix','high');}
+  const dxy = parseFloat(d.dxy);
+  setVal('dxy', fmt(d.dxy));
+  if(dxy>105){setSig('dxy','美元强势 — 新兴市场承压','sr');setDot('dxy','bad');setRisk('dxy','high');}
+  else if(dxy>100){setSig('dxy','美元偏强 — 估值受压','sy');setDot('dxy','warn');setRisk('dxy','med');}
+  else if(dxy<95){setSig('dxy','美元偏弱 — 风险偏好上升','sg');setDot('dxy','ok');setRisk('dxy','low');}
+  else{setSig('dxy','美元中性区间','sm');setDot('dxy','ok');setRisk('dxy','');}
+}
+
+// ── CAPE ────────────────────────────────────────────────
+async function loadCape(){
+  const d = await safeFetch('/api/cape');
+  if(!d||d.error){ setVal('cape','暂不可用','sr'); setDot('cape','bad'); setSig('cape',d?.error||''); return; }
+  const v = parseFloat(d.cape);
+  setVal('cape', fmt(d.cape));
+  if(v>35){setSig('cape','极度高估 — 历史大顶区','sr');setDot('cape','bad');setRisk('cape','high');}
+  else if(v>30){setSig('cape','高估 — 控制仓位，谨慎追高','sy');setDot('cape','warn');setRisk('cape','med');}
+  else if(v>20){setSig('cape','偏高 — 合理区间上沿','sy');setDot('cape','warn');setRisk('cape','med');}
+  else if(v>15){setSig('cape','合理区间','sm');setDot('cape','ok');setRisk('cape','');}
+  else{setSig('cape','低估 — 历史大底，可积极布局','sg');setDot('cape','ok');setRisk('cape','low');}
+}
+
+// ── 巴菲特指标 ───────────────────────────────────────────
+async function loadBuffett(){
+  const d = await safeFetch('/api/buffett');
+  if(!d||d.error){ setVal('buffett','暂不可用','sr'); setDot('buffett','bad'); setSig('buffett',d?.error||''); return; }
+  const v = parseFloat(d.buffett);
+  setVal('buffett', fmt(d.buffett)+'%');
+  if(v>150){setSig('buffett',(d.level||'极度高估')+' — 极度高估 大幅减仓','sr');setDot('buffett','bad');setRisk('buffett','high');}
+  else if(v>120){setSig('buffett',(d.level||'高估')+' — 严重高估 谨慎','sy');setDot('buffett','warn');setRisk('buffett','med');}
+  else if(v>100){setSig('buffett',(d.level||'高估')+' — 偏高，谨慎追高','sy');setDot('buffett','warn');setRisk('buffett','med');}
+  else if(v>80){setSig('buffett',(d.level||'合理')+' — 合理区间','sm');setDot('buffett','ok');setRisk('buffett','');}
+  else{setSig('buffett',(d.level||'低估')+' — 低估，可积极布局','sg');setDot('buffett','ok');setRisk('buffett','low');}
+}
+
+// ── CNN 恐贪 ─────────────────────────────────────────────
+async function loadSentiment(){
+  const d = await safeFetch('/api/sentiment');
+  if(!d||d.error){ setVal('fg','暂不可用','sr'); setDot('fg','bad'); return; }
+  const v = d.score;
+  setVal('fg', v+' '+(d.ratingZh||d.rating||''));
+  if(v>80){setSig('fg','极度贪婪 — 减少追高','sr');setDot('fg','bad');setRisk('fg','high');}
+  else if(v>60){setSig('fg','贪婪 — 减少追高','sy');setDot('fg','warn');setRisk('fg','med');}
+  else if(v<20){setSig('fg','极度恐惧 — 分批买入','sg');setDot('fg','ok');setRisk('fg','low');}
+  else if(v<40){setSig('fg','恐惧 — 可以布局','sb');setDot('fg','ok');setRisk('fg','low');}
+  else{setSig('fg','中性区间','sm');setDot('fg','ok');setRisk('fg','');}
+}
+
+// ── CBOE Put/Call：直接从浏览器 fetch CBOE CDN ──────────
+async function loadPutCall(){
+  const today = new Date();
+  for(let i=0;i<=4;i++){
+    const d = new Date(today);
+    d.setDate(d.getDate()-i);
+    if([0,6].includes(d.getDay())) continue;
+    const yyyy=d.getFullYear();
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const dd=String(d.getDate()).padStart(2,'0');
+    try{
+      const url=`https://cdn.cboe.com/data/us/options/market_statistics/daily/${yyyy}${mm}${dd}_options_statistics.csv`;
+      const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0','Referer':'https://www.cboe.com'}});
+      if(!r.ok) continue;
+      const text=await r.text();
+      if(text.includes('Incapsula')||!text.includes(',')) continue;
+      for(const line of text.split('\n')){
+        if(line.toUpperCase().includes('TOTAL')){
+          for(const col of line.split(',')){
+            const v=parseFloat(col.trim());
+            if(!isNaN(v)&&v>=0.3&&v<=2.5){
+              setVal('pc', fmt(v));
+              if(v<0.7){setSig('pc','过度乐观 — 见顶信号','sr');setDot('pc','bad');setRisk('pc','high');}
+              else if(v<0.85){setSig('pc','偏乐观 — 注意风险','sy');setDot('pc','warn');setRisk('pc','med');}
+              else if(v>1.2){setSig('pc','过度悲观 — 短期买入信号','sg');setDot('pc','ok');setRisk('pc','low');}
+              else{setSig('pc','正常区间','sm');setDot('pc','ok');setRisk('pc','');}
+              return;
+            }
+          }
+        }
+      }
+    }catch(e){}
+  }
+  // 全部失败
+  setVal('pc','暂不可用','sm');
+  setSig('pc','CBOE为客户端渲染，暂无法获取','sm');
+  setDot('pc','warn');
+}
+
+// ── AAII：直接从浏览器 fetch AAII CSV ───────────────────
+async function loadAAII(){
+  try{
+    const r = await fetch('https://www.aaii.com/sentimentsurvey/sent_results',{
+      headers:{
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Referer':'https://www.aaii.com/sentimentsurvey',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+    if(r.ok){
+      const text = await r.text();
+      if(!text.includes('Incapsula')&&!text.includes('NOINDEX')&&text.includes(',')){
+        const lines = text.trim().split('\n');
+        for(let i=1;i<lines.length;i++){
+          const cols = lines[i].split(',');
+          if(cols.length<4) continue;
+          let bull=parseFloat(cols[1]), bear=parseFloat(cols[3]);
+          if(bull<1){bull*=100;bear*=100;}
+          if(!isNaN(bull)&&bull>0&&!isNaN(bear)&&bear>0){
+            const spread=bull-bear;
+            const spreadStr=(spread>0?'+':'')+spread.toFixed(1);
+            setVal('aaii', spreadStr+'%');
+            tx('aaii-detail', `看多 ${bull.toFixed(1)}%  看空 ${bear.toFixed(1)}%`);
+            if(spread>20){setSig('aaii','散户过度乐观 — 见顶反指','sr');setDot('aaii','bad');setRisk('aaii','high');}
+            else if(spread>10){setSig('aaii','散户偏乐观 — 谨慎追高','sy');setDot('aaii','warn');setRisk('aaii','med');}
+            else if(spread<-20){setSig('aaii','散户极度悲观 — 见底反指','sg');setDot('aaii','ok');setRisk('aaii','low');}
+            else if(spread<-10){setSig('aaii','散户偏悲观 — 可以布局','sb');setDot('aaii','ok');setRisk('aaii','low');}
+            else{setSig('aaii','情绪中性','sm');setDot('aaii','ok');setRisk('aaii','');}
+            return;
+          }
+        }
+      }
+    }
+  }catch(e){}
+  setVal('aaii','暂不可用','sm');
+  setSig('aaii','AAII被Incapsula拦截','sm');
+  setDot('aaii','warn');
+}
+
+// ── Scraper：NAAIM + TTM PE + 股息率（服务端） ──────────
+async function loadScraper(){
+  const d = await safeFetch('/api/scraper');
+  if(!d){
+    ['naaim','ttmpe','div'].forEach(k=>{setVal(k,'暂不可用','sm');setDot(k,'warn');});
+    return;
+  }
+  // NAAIM
+  if(d.naaim!=null&&d.naaim!==undefined){
+    const v=parseFloat(d.naaim);
+    setVal('naaim', fmt(d.naaim));
+    if(v>90){setSig('naaim','机构仓位极重 — 子弹枯竭','sr');setDot('naaim','bad');setRisk('naaim','high');}
+    else if(v>80){setSig('naaim','机构仓位重 — 谨慎','sy');setDot('naaim','warn');setRisk('naaim','med');}
+    else if(v<40){setSig('naaim','机构低仓 — 随时可大反弹','sg');setDot('naaim','ok');setRisk('naaim','low');}
+    else{setSig('naaim','机构仓位正常','sm');setDot('naaim','ok');setRisk('naaim','');}
+  }else{setVal('naaim','暂不可用','sm');setSig('naaim',d.naaimError||'');setDot('naaim','warn');}
+  // TTM PE
+  if(d.ttmPe){
+    const v=parseFloat(d.ttmPe);
+    setVal('ttmpe', fmt(d.ttmPe));
+    if(v>25){setSig('ttmpe','估值偏高 — 泡沫风险增加','sr');setDot('ttmpe','bad');setRisk('ttmpe','high');}
+    else if(v>20){setSig('ttmpe','估值偏高 — 注意风险','sy');setDot('ttmpe','warn');setRisk('ttmpe','med');}
+    else if(v<15){setSig('ttmpe','估值偏低 — 价值区间','sg');setDot('ttmpe','ok');setRisk('ttmpe','low');}
+    else{setSig('ttmpe','估值合理','sm');setDot('ttmpe','ok');setRisk('ttmpe','');}
+  }else{setVal('ttmpe','暂不可用','sm');setSig('ttmpe',d.ttmPeError||'');setDot('ttmpe','warn');}
+  // 股息率
+  if(d.divYield){
+    const v=parseFloat(d.divYield);
+    setVal('div', fmt(d.divYield)+'%');
+    if(v<1.5){setSig('div','极低股息 — 历史顶部区域','sr');setDot('div','bad');setRisk('div','high');}
+    else if(v<2){setSig('div','股息偏低 — 偏贵','sy');setDot('div','warn');setRisk('div','med');}
+    else if(v>3){setSig('div','高股息 — 历史低估买点','sg');setDot('div','ok');setRisk('div','low');}
+    else{setSig('div','股息正常','sm');setDot('div','ok');setRisk('div','');}
+  }else{setVal('div','暂不可用','sm');setSig('div',d.divYieldError||'');setDot('div','warn');}
+}
+
+// ── FRED：FFR / 10Y / YC / HY / 失业率 / M2 ────────────
+async function loadFred(){
+  const d = await safeFetch('/api/fred');
+  if(!d||d.error){
+    ['ffr','t10y','yc','hy','unemp','m2'].forEach(k=>{setVal(k,'暂不可用','sm');setDot(k,'warn');});
+    return;
+  }
+  // FFR
+  if(d.ffr?.value){
+    const v=parseFloat(d.ffr.value);
+    setVal('ffr', fmt(d.ffr.value)+'%');
+    if(v>5){setSig('ffr','利率偏高 — 估值压力','sr');setDot('ffr','bad');setRisk('ffr','high');}
+    else if(v>3){setSig('ffr','利率偏高 — 等待降息信号','sy');setDot('ffr','warn');setRisk('ffr','med');}
+    else if(v<1){setSig('ffr','低利率 — 牛市燃料，加仓','sg');setDot('ffr','ok');setRisk('ffr','low');}
+    else{setSig('ffr','利率合理 — 等待特殊降息信号','sm');setDot('ffr','ok');setRisk('ffr','');}
+  }else{setVal('ffr','暂不可用','sm');setDot('ffr','warn');}
+  // 10Y
+  if(d.tenYear?.value){
+    const v=parseFloat(d.tenYear.value);
+    setVal('t10y', fmt(d.tenYear.value)+'%');
+    if(v>5){setSig('t10y','利率偏高 — 估值受压','sr');setDot('t10y','bad');setRisk('t10y','high');}
+    else if(v>4){setSig('t10y','利率偏高 — 估值受压','sy');setDot('t10y','warn');setRisk('t10y','med');}
+    else if(v<2){setSig('t10y','低利率 — 股市友好','sg');setDot('t10y','ok');setRisk('t10y','low');}
+    else{setSig('t10y','利率合理区间','sm');setDot('t10y','ok');setRisk('t10y','');}
+  }else{setVal('t10y','暂不可用','sm');setDot('t10y','warn');}
+  // 收益率曲线
+  if(d.yieldCurve?.value){
+    const v=parseFloat(d.yieldCurve.value);
+    setVal('yc', (v>0?'+':'')+fmt(d.yieldCurve.value)+'%');
+    if(v<0){setSig('yc','曲线倒挂 — 衰退预警信号','sr');setDot('yc','bad');setRisk('yc','high');}
+    else if(v<0.3){setSig('yc','刚转正 — 大跌高风险期','sy');setDot('yc','warn');setRisk('yc','med');}
+    else{setSig('yc','曲线正常，经济扩张','sg');setDot('yc','ok');setRisk('yc','low');}
+  }else{setVal('yc','暂不可用','sm');setDot('yc','warn');}
+  // HY Spread
+  if(d.highYield?.value){
+    const v=parseFloat(d.highYield.value);
+    setVal('hy', fmt(d.highYield.value)+'%');
+    if(v>6){setSig('hy','信用危机 — 市场危机','sr');setDot('hy','bad');setRisk('hy','high');}
+    else if(v>5){setSig('hy','利差扩大 — 需警惕','sy');setDot('hy','warn');setRisk('hy','med');}
+    else if(v<3){setSig('hy','流动性充裕 — 市场乐观','sg');setDot('hy','ok');setRisk('hy','low');}
+    else{setSig('hy','流动性充裕 — 市场乐观','sg');setDot('hy','ok');setRisk('hy','low');}
+  }else{setVal('hy','暂不可用','sm');setDot('hy','warn');}
+  // 失业率
+  if(d.unemployment?.value){
+    const v=parseFloat(d.unemployment.value);
+    setVal('unemp', fmt(d.unemployment.value,1)+'%');
+    if(v>6){setSig('unemp','失业率高 — 衰退进行中','sr');setDot('unemp','bad');setRisk('unemp','high');}
+    else if(v>5){setSig('unemp','失业率偏高 — 注意','sy');setDot('unemp','warn');setRisk('unemp','med');}
+    else if(v<4){setSig('unemp','低位稳定 — 经济健康','sg');setDot('unemp','ok');setRisk('unemp','low');}
+    else{setSig('unemp','失业率正常','sm');setDot('unemp','ok');setRisk('unemp','');}
+  }else{setVal('unemp','暂不可用','sm');setDot('unemp','warn');}
+  // M2
+  if(d.m2?.value){
+    const v=parseFloat(d.m2.value);
+    setVal('m2', (v/1000).toFixed(1)+'T');
+    setSig('m2', '截至 '+d.m2.date,'sm');
+    setDot('m2','ok'); setRisk('m2','');
+  }else{setVal('m2','暂不可用','sm');setDot('m2','warn');}
+}
+
+// ── 主入口 ──────────────────────────────────────────────
+async function loadAll(){
+  const allIds=['cape','buffett','ttmpe','div','ffr','t10y','dxy','yc','hy','vix','fg','pc','aaii','naaim','unemp','m2'];
+  allIds.forEach(i=>{ setVal(i,'拉取中…','ld'); setDot(i,'ld'); setSig(i,''); setRisk(i,''); });
+  ['b-spx','b-ndx','b-dji','b-vix','b-dxy'].forEach(i=>tx(i,'—'));
+  await Promise.all([loadYahoo(), loadCape(), loadBuffett(), loadSentiment(), loadScraper(), loadFred(), loadPutCall(), loadAAII()]);
+  const now=new Date();
+  tx('lu', now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+}
+
+loadAll();
+</script>
+</body>
+</html>
